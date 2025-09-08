@@ -1,7 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+
+
+import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { testCases } from './testData.js'; 
+import { testCases } from './testData.js';
 
 const TerminalIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-5 w-5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
@@ -11,6 +13,9 @@ const BrainIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-5 w-5"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-2.5-2.5V2zM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 2.5-2.5V2z"/><path d="M5 10a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 10v1.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 11.5V10z"/></svg>
 );
 
+const LogIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-5 w-5"><path d="M10 21h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+);
 
 function App() {
     const [output, setOutput] = useState(null);
@@ -19,12 +24,33 @@ function App() {
     const [chartData, setChartData] = useState([]);
     const [aiAnalysis, setAiAnalysis] = useState('');
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [terminalLog, setTerminalLog] = useState([]);
+    const terminalRef = useRef(null);
 
-    // The large, hardcoded testCases object has been removed from here.
+    const log = (message) => {
+        const timestamp = new Date().toLocaleTimeString('en-IN', { hour12: false });
+        const logMessage = `[${timestamp}] ${message}`;
+        console.log(logMessage);
+        setTerminalLog(prev => [...prev, logMessage]);
+    };
     
     const fetchAiAnalysis = async (degree, constant_c) => {
         setIsAiLoading(true);
         setAiAnalysis('');
+        log("Requesting AI analysis from Gemini API...");
+        
+        const useMockAPI = true; 
+
+        if (useMockAPI) {
+            log("MOCK MODE: Simulating API call due to environment restrictions.");
+            setTimeout(() => {
+                const mockResponse = `The constant 'c' (${constant_c}) represents the y-intercept of the polynomial. This is the value of the function when x=0, providing a crucial baseline for the polynomial's behavior and its starting point on the graph.`;
+                setAiAnalysis(mockResponse);
+                log("MOCK MODE: AI analysis simulation complete.");
+                setIsAiLoading(false);
+            }, 1200);
+            return;
+        }
         
         const apiKey = ""; 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -49,19 +75,23 @@ function App() {
             
             if (text) {
                 setAiAnalysis(text);
+                log("AI analysis received successfully.");
             } else {
                 setAiAnalysis("Could not retrieve AI analysis. The calculation is still correct.");
+                log("Warning: AI analysis could not be retrieved.");
             }
         } catch (error) {
             console.error("Error fetching AI analysis:", error);
             setAiAnalysis("An error occurred while fetching the AI analysis. The calculation result is displayed above.");
+            log(`Error: AI analysis failed. ${error.message}`);
         } finally {
             setIsAiLoading(false);
         }
     };
 
-
     const solvePolynomial = (input) => {
+        setTerminalLog([]);
+        log(`Initiating analysis for ${testCase}...`);
         setIsLoading(true);
         setOutput(null);
         setChartData([]);
@@ -70,16 +100,21 @@ function App() {
             const { keys, ...roots } = input;
             const k = keys.k;
             const degree = k - 1;
+            log(`Polynomial degree identified as ${degree} (k=${k}).`);
 
+            log("Parsing and decoding input data points...");
             const points = Object.entries(roots).map(([xStr, data]) => {
                 const x = BigInt(xStr);
                 const y = BigInt(parseInt(data.value, parseInt(data.base)));
+                log(`  - Decoded point: P(${x}) = ${y}`);
                 return { x, y };
             }).slice(0, k);
             
             const processedChartData = points.map(p => ({ x: Number(p.x), y: Number(p.y) }));
             setChartData(processedChartData);
+            log("Data points prepared for visualization.");
 
+            log("Starting Lagrange Interpolation to find constant 'c'...");
             let c = BigInt(0);
             for (let j = 0; j < k; j++) {
                 let numerator = BigInt(1);
@@ -93,9 +128,11 @@ function App() {
                 const term = points[j].y * numerator / denominator;
                 c += term;
             }
+            log("Calculation complete.");
             
             const finalC = c.toString();
             setOutput(finalC);
+            log(`>>> Final Constant (c) = ${finalC}`);
             setIsLoading(false);
             
             fetchAiAnalysis(degree, finalC);
@@ -107,35 +144,54 @@ function App() {
              solvePolynomial(testCases[testCase]);
         }
     }, [testCase]);
+
+    useEffect(() => {
+        if (terminalRef.current) {
+            terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+        }
+    }, [terminalLog]);
     
     return (
         <div className="bg-gray-900 text-gray-200 min-h-screen font-mono p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
                 <header className="text-center mb-10">
-                    <h1 className="text-4xl sm:text-5xl font-bold text-cyan-400 tracking-wider">Project Insight</h1>
+                    <h1 className="text-4xl sm:text-5xl font-bold text-cyan-400 tracking-wider">PolyEqn Solver</h1>
                     <p className="text-gray-400 mt-2 text-lg">AI-Assisted Polynomial Analysis</p>
                 </header>
 
                 <main className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-2 bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                        <div className="flex items-center text-lg mb-4 text-cyan-300">
-                            <TerminalIcon />
-                            <h2 className="font-semibold ">Input Configuration</h2>
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
+                            <div className="flex items-center text-lg mb-4 text-cyan-300">
+                                <TerminalIcon />
+                                <h2 className="font-semibold ">Input Configuration</h2>
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="test-case-selector" className="text-gray-400 block mb-2">Select Test Case:</label>
+                                <select 
+                                    id="test-case-selector"
+                                    value={testCase}
+                                    onChange={(e) => setTestCase(e.target.value)}
+                                    className="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                                    <option value="testCase1">Sample Test Case 1</option>
+                                    <option value="testCase2">Sample Test Case 2</option>
+                                </select>
+                            </div>
+                            <pre className="bg-black text-xs text-gray-300 p-4 rounded-md overflow-x-auto h-[300px]">
+                                {testCases[testCase] ? JSON.stringify(testCases[testCase], null, 2) : "Loading data..."}
+                            </pre>
                         </div>
-                         <div className="mb-4">
-                             <label htmlFor="test-case-selector" className="text-gray-400 block mb-2">Select Test Case:</label>
-                             <select 
-                                 id="test-case-selector"
-                                 value={testCase}
-                                 onChange={(e) => setTestCase(e.target.value)}
-                                 className="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
-                                 <option value="testCase1">Sample Test Case 1</option>
-                                 <option value="testCase2">Sample Test Case 2</option>
-                             </select>
+                        <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
+                             <div className="flex items-center text-lg mb-4 text-cyan-300">
+                                <LogIcon />
+                                <h2 className="font-semibold ">Process Log</h2>
+                            </div>
+                            <div ref={terminalRef} className="bg-black text-xs text-green-400 p-4 rounded-md overflow-y-auto h-48">
+                                {terminalLog.map((line, index) => (
+                                    <p key={index} className="whitespace-pre-wrap">{line}</p>
+                                ))}
+                            </div>
                         </div>
-                        <pre className="bg-black text-xs text-gray-300 p-4 rounded-md overflow-x-auto h-[450px]">
-                            {testCases[testCase] ? JSON.stringify(testCases[testCase], null, 2) : "Loading data..."}
-                        </pre>
                     </div>
 
                     <div className="lg:col-span-3 space-y-8">
