@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { testCases } from './testData.js'; 
 
 const TerminalIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-5 w-5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
@@ -18,28 +20,7 @@ function App() {
     const [aiAnalysis, setAiAnalysis] = useState('');
     const [isAiLoading, setIsAiLoading] = useState(false);
 
-    const testCases = {
-        testCase1: {
-            "keys": { "n": 4, "k": 3 },
-            "1": { "base": "10", "value": "4" },
-            "2": { "base": "2", "value": "111" },
-            "3": { "base": "10", "value": "12" },
-            "6": { "base": "4", "value": "213" }
-        },
-        testCase2: {
-            "keys": { "n": 10, "k": 7 },
-            "1": { "base": "6", "value": "13444211440455345511" },
-            "2": { "base": "15", "value": "aed7015a346d635" },
-            "3": { "base": "15", "value": "6aeeb69631c227c" },
-            "4": { "base": "16", "value": "e1b5e05623d881f" },
-            "5": { "base": "8", "value": "316034514573652620673" },
-            "6": { "base": "3", "value": "2122212201122002221120200210011020220200" },
-            "7": { "base": "3", "value": "20120221122211000100210021102001201112121" },
-            "8": { "base": "6", "value": "20220554335330240002224253" },
-            "9": { "base": "12", "value": "45153788322a1255483" },
-            "10": { "base": "7", "value": "1101613130313526312514143" }
-        }
-    };
+    // The large, hardcoded testCases object has been removed from here.
     
     const fetchAiAnalysis = async (degree, constant_c) => {
         setIsAiLoading(true);
@@ -122,7 +103,9 @@ function App() {
     };
     
     useEffect(() => {
-        solvePolynomial(testCases[testCase]);
+        if (testCases[testCase]) {
+             solvePolynomial(testCases[testCase]);
+        }
     }, [testCase]);
     
     return (
@@ -151,7 +134,7 @@ function App() {
                              </select>
                         </div>
                         <pre className="bg-black text-xs text-gray-300 p-4 rounded-md overflow-x-auto h-[450px]">
-                            {JSON.stringify(testCases[testCase], null, 2)}
+                            {testCases[testCase] ? JSON.stringify(testCases[testCase], null, 2) : "Loading data..."}
                         </pre>
                     </div>
 
